@@ -193,3 +193,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 ⭐ **Star this repository if you found it helpful!**
+
+## **Screenshots:**
+<img width="1976" height="1387" alt="image" src="https://github.com/user-attachments/assets/0a41109f-a97c-4c67-922c-ad53165eae88" />
+<img width="1967" height="1370" alt="image" src="https://github.com/user-attachments/assets/b17f3c91-c8c2-4097-9ffc-5ed4d4f496b9" />
+
