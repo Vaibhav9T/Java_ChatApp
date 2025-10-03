@@ -26,7 +26,7 @@ public class RegisterDialog extends JDialog implements ActionListener {
     private void initializeGUI() {
         setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        setSize(400, 350);
+        setSize(450, 400);
         setLocationRelativeTo(getParent());
         
         // Title
@@ -70,8 +70,19 @@ public class RegisterDialog extends JDialog implements ActionListener {
         gbc.gridx = 1;
         add(passwordField, gbc);
         
+        // Password requirements info
+        JLabel passwordInfo = new JLabel("<html><small>• Min 6 chars • One letter • One number<br/>• One special char (!@#$%^&*)</small></html>");
+        passwordInfo.setForeground(new Color(100, 100, 100));
+        passwordInfo.setFont(new Font("Arial", Font.PLAIN, 10));
+        gbc.gridx = 1; gbc.gridy = 5;
+        gbc.insets = new Insets(0, 10, 5, 10);
+        add(passwordInfo, gbc);
+        
+        // Reset insets
+        gbc.insets = new Insets(5, 10, 5, 10);
+        
         // Confirm Password
-        gbc.gridx = 0; gbc.gridy = 5;
+        gbc.gridx = 0; gbc.gridy = 6;
         add(new JLabel("Confirm Password:"), gbc);
         confirmPasswordField = new JPasswordField(15);
         gbc.gridx = 1;
@@ -92,7 +103,7 @@ public class RegisterDialog extends JDialog implements ActionListener {
         cancelButton.setForeground(Color.WHITE);
         buttonPanel.add(cancelButton);
         
-        gbc.gridx = 0; gbc.gridy = 6;
+        gbc.gridx = 0; gbc.gridy = 7;
         gbc.gridwidth = 2;
         gbc.insets = new Insets(20, 0, 10, 0);
         add(buttonPanel, gbc);
@@ -100,7 +111,8 @@ public class RegisterDialog extends JDialog implements ActionListener {
         // Status label
         statusLabel = new JLabel(" ");
         statusLabel.setForeground(Color.RED);
-        gbc.gridy = 7;
+        statusLabel.setFont(new Font("Arial", Font.BOLD, 11));
+        gbc.gridy = 8;
         add(statusLabel, gbc);
         
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -130,35 +142,55 @@ public class RegisterDialog extends JDialog implements ActionListener {
             return;
         }
         
+        // Username validation
         if (username.length() < 3) {
             statusLabel.setText("Username must be at least 3 characters");
             return;
         }
         
-        if (!email.contains("@") || !email.contains(".")) {
-            statusLabel.setText("Please enter a valid email address");
+        if (username.length() > 20) {
+            statusLabel.setText("Username must be less than 20 characters");
             return;
         }
         
-        if (password.length() < 6) {
-            statusLabel.setText("Password must be at least 6 characters");
-            return;
-        }
-        
-        if (!password.equals(confirmPassword)) {
-            statusLabel.setText("Passwords do not match");
+        if (!username.matches("^[a-zA-Z0-9_]+$")) {
+            statusLabel.setText("Username can only contain letters, numbers, and underscores");
             return;
         }
         
         // Check if username already exists
         if (userDAO.usernameExists(username)) {
-            statusLabel.setText("Username already exists");
+            statusLabel.setText("❌ Username '" + username + "' is already taken. Please choose another.");
+            return;
+        }
+        
+        // Email validation
+        if (!isValidEmail(email)) {
+            statusLabel.setText("Please enter a valid email address");
             return;
         }
         
         // Check if email already exists
         if (userDAO.emailExists(email)) {
-            statusLabel.setText("Email already registered");
+            statusLabel.setText("❌ Email is already registered. Please use another email.");
+            return;
+        }
+        
+        // Full name validation
+        if (fullName.length() < 2) {
+            statusLabel.setText("Full name must be at least 2 characters");
+            return;
+        }
+        
+        // Password validation
+        String passwordValidationError = validatePassword(password);
+        if (passwordValidationError != null) {
+            statusLabel.setText(passwordValidationError);
+            return;
+        }
+        
+        if (!password.equals(confirmPassword)) {
+            statusLabel.setText("❌ Passwords do not match");
             return;
         }
         
@@ -168,16 +200,69 @@ public class RegisterDialog extends JDialog implements ActionListener {
         if (userDAO.registerUser(newUser)) {
             registrationSuccessful = true;
             JOptionPane.showMessageDialog(this, 
-                "Registration successful! You can now login with your credentials.", 
-                "Success", 
+                "✅ Registration Successful!\n\n" +
+                "Welcome " + fullName + "!\n" +
+                "You can now login with:\n" +
+                "Username: " + username + "\n" +
+                "Password: [Your chosen password]\n\n" +
+                "Happy chatting! 💬", 
+                "Registration Complete", 
                 JOptionPane.INFORMATION_MESSAGE);
             dispose();
         } else {
-            statusLabel.setText("Registration failed. Please try again.");
+            statusLabel.setText("❌ Registration failed. Please try again or contact support.");
         }
     }
     
     public boolean isRegistrationSuccessful() {
         return registrationSuccessful;
+    }
+    
+    /**
+     * Validates email format using regex
+     */
+    private boolean isValidEmail(String email) {
+        String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
+        return email.matches(emailRegex);
+    }
+    
+    /**
+     * Validates password strength and returns error message if invalid
+     * Requirements:
+     * - Minimum 6 characters
+     * - At least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)
+     * - At least one letter
+     * - At least one number
+     */
+    private String validatePassword(String password) {
+        if (password.length() < 6) {
+            return "❌ Password must be at least 6 characters long";
+        }
+        
+        if (password.length() > 30) {
+            return "❌ Password must be less than 30 characters";
+        }
+        
+        // Check for at least one letter
+        if (!password.matches(".*[a-zA-Z].*")) {
+            return "❌ Password must contain at least one letter";
+        }
+        
+        // Check for at least one number
+        if (!password.matches(".*[0-9].*")) {
+            return "❌ Password must contain at least one number";
+        }
+        
+        // Check for at least one special character
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;:,.<>?].*")) {
+            return "❌ Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)";
+        }
+        
+        // Check for no spaces
+        if (password.contains(" ")) {
+            return "❌ Password cannot contain spaces";
+        }
+        
+        return null; // Password is valid
     }
 }
