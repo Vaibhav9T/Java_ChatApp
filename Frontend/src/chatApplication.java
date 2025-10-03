@@ -50,10 +50,18 @@ public class chatApplication extends JFrame implements ActionListener {
     }
     
     private void initializeGUI() {
-        setTitle("Java Chat Application");
+        setTitle("Modern Chat Application");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 600);
+        setSize(900, 700);
         setLocationRelativeTo(null);
+        setResizable(true);
+        
+        // Set modern look and feel
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            // Fallback to default
+        }
         
         createLoginPanel();
         createChatPanel();
@@ -102,12 +110,18 @@ public class chatApplication extends JFrame implements ActionListener {
         loginButton.addActionListener(this);
         loginButton.setBackground(new Color(70, 130, 180));
         loginButton.setForeground(Color.WHITE);
+        loginButton.setFont(new Font("Arial", Font.BOLD, 14));
+        loginButton.setOpaque(true);
+        loginButton.setBorderPainted(false);
         buttonPanel.add(loginButton);
         
         registerButton = new JButton("Register");
         registerButton.addActionListener(this);
         registerButton.setBackground(new Color(34, 139, 34));
         registerButton.setForeground(Color.WHITE);
+        registerButton.setFont(new Font("Arial", Font.BOLD, 14));
+        registerButton.setOpaque(true);
+        registerButton.setBorderPainted(false);
         buttonPanel.add(registerButton);
         
         gbc.gridx = 0; gbc.gridy = 3;
@@ -160,6 +174,11 @@ public class chatApplication extends JFrame implements ActionListener {
         // Create room button
         createRoomButton = new JButton("Create Room");
         createRoomButton.addActionListener(this);
+        createRoomButton.setBackground(new Color(70, 130, 180));
+        createRoomButton.setForeground(Color.WHITE);
+        createRoomButton.setFont(new Font("Arial", Font.BOLD, 12));
+        createRoomButton.setOpaque(true);
+        createRoomButton.setBorderPainted(false);
         
         leftPanel.add(roomScrollPane, BorderLayout.NORTH);
         leftPanel.add(userScrollPane, BorderLayout.CENTER);
@@ -182,6 +201,11 @@ public class chatApplication extends JFrame implements ActionListener {
         messageField.addActionListener(this);
         sendButton = new JButton("Send");
         sendButton.addActionListener(this);
+        sendButton.setBackground(new Color(34, 139, 34));
+        sendButton.setForeground(Color.WHITE);
+        sendButton.setFont(new Font("Arial", Font.BOLD, 12));
+        sendButton.setOpaque(true);
+        sendButton.setBorderPainted(false);
         
         messagePanel.add(messageField, BorderLayout.CENTER);
         messagePanel.add(sendButton, BorderLayout.EAST);
@@ -193,6 +217,11 @@ public class chatApplication extends JFrame implements ActionListener {
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         logoutButton = new JButton("Logout");
         logoutButton.addActionListener(this);
+        logoutButton.setBackground(new Color(220, 53, 69));
+        logoutButton.setForeground(Color.WHITE);
+        logoutButton.setFont(new Font("Arial", Font.BOLD, 12));
+        logoutButton.setOpaque(true);
+        logoutButton.setBorderPainted(false);
         topPanel.add(logoutButton);
         
         chatPanel.add(topPanel, BorderLayout.NORTH);
@@ -258,22 +287,38 @@ public class chatApplication extends JFrame implements ActionListener {
     }
     
     private void handleLogin() {
-        String username = usernameField.getText().trim();
+        String rawUsername = usernameField.getText().trim();
         String password = new String(passwordField.getPassword()).trim();
         
+        // Clear placeholder text if present
+        String username = rawUsername.equals("Jiara Martins") ? "" : rawUsername;
+        
         if (username.isEmpty() || password.isEmpty()) {
-            statusLabel.setText("Please enter both username and password");
+            statusLabel.setText("❌ Please enter both username and password");
             return;
         }
         
-        User user = userDAO.loginUser(username, password);
-        if (user != null) {
-            currentUser = user;
-            statusLabel.setText("Login successful!");
-            showChatPanel();
-        } else {
-            statusLabel.setText("Invalid username or password");
-        }
+        // Show loading state
+        statusLabel.setText("🔄 Signing in...");
+        loginButton.setText("Signing in...");
+        loginButton.setEnabled(false);
+        
+        // Use SwingWorker for better UX (though not necessary for local DB)
+        final String finalUsername = username;
+        final String finalPassword = password;
+        
+        SwingUtilities.invokeLater(() -> {
+            User user = userDAO.loginUser(finalUsername, finalPassword);
+            if (user != null) {
+                currentUser = user;
+                statusLabel.setText("✅ Login successful!");
+                showChatPanel();
+            } else {
+                statusLabel.setText("❌ Invalid username or password");
+                loginButton.setText("Log in");
+                loginButton.setEnabled(true);
+            }
+        });
     }
     
     private void handleRegister() {
