@@ -5,6 +5,8 @@ A high-performance, full-stack chat application that blends traditional real-tim
 # Chat Interface
 <img width="2880" height="1800" alt="image" src="https://github.com/user-attachments/assets/ca708974-4ec4-455a-b0ca-69892cff1b8e" />
 
+---
+
 ## ✨ Key Features
 
 * **Real-Time WebSockets:** Low-latency, bidirectional communication powered by Spring WebSockets and STOMP protocols.
