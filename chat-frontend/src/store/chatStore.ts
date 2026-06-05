@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-// 1. Add createJSONStorage to your imports
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface Message {
@@ -7,6 +6,9 @@ export interface Message {
   content: string;
   sender: { username: string };
   timestamp?: string;
+
+  fileData?: string;
+  fileName?: string;
 }
 
 interface ChatState {
@@ -26,6 +28,10 @@ interface ChatState {
 
   isAiTyping: boolean;
   setIsAiTyping: (isTyping: boolean) => void;
+
+  // --- NEW THEME STATE ---
+  theme: 'dark' | 'light';
+  toggleTheme: () => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -48,12 +54,15 @@ export const useChatStore = create<ChatState>()(
 
       isAiTyping: false,
       setIsAiTyping: (isTyping) => set({ isAiTyping: isTyping }),
+
+      // Theme Implementation defaults to dark
+      theme: 'dark',
+      toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
     }),
     {
       name: 'chat-storage',
-      // 2. THIS IS THE MAGIC LINE: Switch to sessionStorage!
       storage: createJSONStorage(() => sessionStorage), 
-      partialize: (state) => ({ currentUser: state.currentUser, token: state.token }), 
+      partialize: (state) => ({ currentUser: state.currentUser, token: state.token, theme: state.theme }), 
     }
   )
 );

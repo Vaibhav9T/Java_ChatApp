@@ -46,4 +46,27 @@ public class Message {
 
     public ChatRoom getChatRoom() { return chatRoom; }
     public void setChatRoom(ChatRoom chatRoom) { this.chatRoom = chatRoom; }
+
+
+    @Column(columnDefinition = "TEXT") 
+    private String fileData;
+    
+    private String fileName;
+
+    // Add the Getters and Setters for the new fields
+    public String getFileData() {
+        return fileData;
+    }
+
+    public void setFileData(String fileData) {
+        this.fileData = fileData;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
 }

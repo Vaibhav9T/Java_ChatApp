@@ -62,11 +62,13 @@ export const useWebSocket = (roomId: string, username: string) => {
   }, [roomId, addMessage, setIsAiTyping]);
 
   // 5. Provide a function for the UI to send messages back to the server
-  const sendMessage = useCallback((content: string) => {
+  const sendMessage = useCallback((content: string, fileData?: string, fileName?: string) => {
     if (stompClient.current && stompClient.current.connected) {
       const chatMessage = {
         content,
         sender: { username }, 
+        fileData, // Include file data
+        fileName,
       };
       
       stompClient.current.publish({
