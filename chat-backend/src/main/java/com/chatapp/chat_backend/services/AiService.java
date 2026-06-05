@@ -31,49 +31,85 @@ public class AiService {
     @Autowired
     private MessageRepository messageRepository;
 
-    // Spring injects the key here from your .env file
     @Value("${gemini.api-key}")
     private String API_KEY;
 
-    // Base URL WITHOUT the key attached
     private final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void processAiCommand(String roomId, String prompt) {
-        // Run in a background thread to keep the WebSocket stream fast
         new Thread(() -> {
             try {
-                // Combine the base URL and the injected key right before making the request!
                 String fullUrl = BASE_URL + API_KEY;
 
-                // 1. Build the Request to Gemini
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
 
-                // Escape quotes to prevent JSON errors
                 String safePrompt = prompt.replace("\"", "\\\"");
-                String requestBody = "{\"contents\": [{\"parts\":[{\"text\": \"" + safePrompt + "\"}]}]}";
+                
+                String requestBody = """
+                {
+                  "contents": [{"parts":[{"text": "%s"}]}],
+                  "tools": [
+                    {
+                      "functionDeclarations": [
+                        {
+                          "name": "clear_chat_history",
+                          "description": "Deletes all messages in the current chat room. Call this when a user asks to clear, wipe, or delete the chat."
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """.formatted(safePrompt);
 
                 HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
                 ResponseEntity<Map> response = restTemplate.postForEntity(fullUrl, request, Map.class);
 
-                // 2. Parse the JSON Response
                 List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.getBody().get("candidates");
                 Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
                 List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
-                String aiResponseText = (String) parts.get(0).get("text");
+                
+                Map<String, Object> firstPart = parts.get(0);
+                String aiResponseText = "";
 
-                // 3. Ensure the AI User exists in PostgreSQL
+                // FETCH USER AND ROOM EARLY: We need these for the system wipe command
                 User aiUser = userRepository.findByUsername("AI_Assistant").orElseGet(() -> {
                     User newUser = new User();
                     newUser.setUsername("AI_Assistant");
-                    newUser.setPassword("hidden_bot_password"); // Bypass BCrypt auth
+                    newUser.setPassword("hidden_bot_password");
                     return userRepository.save(newUser);
                 });
 
                 ChatRoom room = chatRoomRepository.findByName(roomId).orElseThrow();
 
-                // 4. Save and Broadcast the AI's Message
+                // --- AGENTIC LOGIC: Check if Gemini wants to call a function ---
+                if (firstPart.containsKey("functionCall")) {
+                    Map<String, Object> functionCall = (Map<String, Object>) firstPart.get("functionCall");
+                    String functionName = (String) functionCall.get("name");
+                    
+                    if ("clear_chat_history".equals(functionName)) {
+                        System.out.println("🤖 AI Agent triggered function: clear_chat_history");
+                        
+                        // 1. Wipe the PostgreSQL Database
+                        messageRepository.deleteByChatRoom(room);
+                        
+                        // 2. Blast a hidden command to all connected WebSockets instantly
+                        Message wipeCommand = new Message();
+                        wipeCommand.setContent("SYSTEM_WIPE_COMMAND");
+                        wipeCommand.setSender(aiUser);
+                        wipeCommand.setChatRoom(room);
+                        messagingTemplate.convertAndSend("/topic/" + roomId, wipeCommand);
+                        
+                        // 3. Prepare the AI's verbal confirmation
+                        aiResponseText = "I have successfully cleared the chat history for this room.";
+                    }
+                } else if (firstPart.containsKey("text")) {
+                    // Standard text response
+                    aiResponseText = (String) firstPart.get("text");
+                }
+
+                // 4. Save and Broadcast the AI's Final Message
                 Message aiMessage = new Message();
                 aiMessage.setContent(aiResponseText);
                 aiMessage.setSender(aiUser);
@@ -81,7 +117,7 @@ public class AiService {
 
                 messageRepository.save(aiMessage);
 
-                // Manually fire the message into the specific room's channel
+                // Manually fire the text message into the specific room's channel
                 messagingTemplate.convertAndSend("/topic/" + roomId, aiMessage);
 
             } catch (Exception e) {

@@ -1,8 +1,10 @@
 package com.chatapp.chat_backend.repositories;
 
+import com.chatapp.chat_backend.models.ChatRoom;
 import com.chatapp.chat_backend.models.Message;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -12,4 +14,8 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByChatRoomIdOrderByTimestampAsc(Long chatRoomId);
     // Add this line inside the interface:
     List<Message> findByChatRoom_NameOrderByTimestampAsc(String roomName);
+
+    // Add this to allow the AI to wipe a room
+    @Transactional
+    void deleteByChatRoom(ChatRoom chatRoom);
 }
