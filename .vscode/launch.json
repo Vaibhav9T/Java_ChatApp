@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Run Spring Boot (With .env)",
+            "request": "launch",
+            "mainClass": "com.chatapp.chat_backend.ChatBackendApplication",
+            "projectName": "chat-backend",
+            "cwd": "${workspaceFolder}/chat-backend",
+            "envFile": "${workspaceFolder}/chat-backend/.env"
+        }
+    ]
+}
