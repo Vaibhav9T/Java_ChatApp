@@ -3,15 +3,18 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useChatStore } from '../store/chatStore';
 
+// Safely pull the API URL from the .env file, defaulting to localhost for safety
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 export const useWebSocket = (roomId: string, username: string) => {
   const stompClient = useRef<Client | null>(null);
   const addMessage = useChatStore((state) => state.addMessage);
+  const setIsAiTyping = useChatStore((state) => state.setIsAiTyping);
 
   useEffect(() => {
-    // 1. Initialize the STOMP Client
+    // 1. Initialize the STOMP Client dynamically
     const client = new Client({
-      // Map this to the endpoint defined in your Spring Boot WebSocketConfig.java
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => new SockJS(`${API_URL}/ws`),
       reconnectDelay: 5000,
       
       onConnect: () => {
@@ -20,7 +23,22 @@ export const useWebSocket = (roomId: string, username: string) => {
         // 2. Subscribe to the room's broadcast channel
         client.subscribe(`/topic/${roomId}`, (message) => {
           const receivedMessage = JSON.parse(message.body);
-          addMessage(receivedMessage); // Push to Zustand store
+          
+          // --- AI UX LOGIC ---
+          // If the AI responds, instantly turn off the "Thinking" indicator
+          if (receivedMessage.sender.username === 'AI_Assistant') {
+            setIsAiTyping(false);
+          }
+          
+          // --- SYSTEM COMMAND INTERCEPTOR ---
+          // If this is a hidden server command, execute it and STOP. Do not render it.
+          if (receivedMessage.content === 'SYSTEM_WIPE_COMMAND') {
+            useChatStore.getState().setMessages([]); // Instantly clear the screen!
+            return; 
+          }
+          
+          // Otherwise, it's a normal message. Add it to the screen.
+          addMessage(receivedMessage); 
         });
       },
       
@@ -41,18 +59,18 @@ export const useWebSocket = (roomId: string, username: string) => {
         console.log('🛑 Disconnected from WebSocket');
       }
     };
-  }, [roomId, addMessage]);
+  }, [roomId, addMessage, setIsAiTyping]);
 
   // 5. Provide a function for the UI to send messages back to the server
   const sendMessage = useCallback((content: string) => {
     if (stompClient.current && stompClient.current.connected) {
       const chatMessage = {
         content,
-        sender: { username }, // Matches the expected Spring Boot payload
+        sender: { username }, 
       };
       
       stompClient.current.publish({
-        destination: `/app/chat/${roomId}`, // Maps to @MessageMapping in ChatController.java
+        destination: `/app/chat/${roomId}`, 
         body: JSON.stringify(chatMessage),
       });
     } else {

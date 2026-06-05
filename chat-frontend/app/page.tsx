@@ -6,6 +6,9 @@ import { useChatStore } from '@/src/store/chatStore';
 import { useWebSocket } from '@/src/hooks/useWebSocket';
 import { Send, UserCircle2, Plus, MoreVertical, Phone, Video, Paperclip, Smile, LogOut, Hash, Search } from 'lucide-react';
 
+// Centralize the API URL from the .env file
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 export default function ChatInterface() {
   const router = useRouter(); 
   
@@ -16,14 +19,18 @@ export default function ChatInterface() {
   const setMessages = useChatStore((state) => state.setMessages);
   const logout = useChatStore((state) => state.logout);
   
-  // New Room State
+  // Room State
   const activeRoom = useChatStore((state) => state.activeRoom);
   const setActiveRoom = useChatStore((state) => state.setActiveRoom);
   const rooms = useChatStore((state) => state.rooms);
   const setRooms = useChatStore((state) => state.setRooms);
 
+  // New AI Typing State
+  const isAiTyping = useChatStore((state) => state.isAiTyping);
+  const setIsAiTyping = useChatStore((state) => state.setIsAiTyping);
+
   const [inputValue, setInputValue] = useState('');
-  const [newRoomName, setNewRoomName] = useState(''); // State for creating rooms
+  const [newRoomName, setNewRoomName] = useState(''); 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [isMounted, setIsMounted] = useState(false);
@@ -32,8 +39,7 @@ export default function ChatInterface() {
     setIsMounted(true);
   }, []);
 
-  // --- DYNAMIC WEBSOCKET CONNECTION ---
-  // When activeRoom changes, this hook automatically reconnects!
+  // Dynamic WebSocket Connection
   const { sendMessage } = useWebSocket(activeRoom, isMounted ? (currentUser || 'guest') : 'guest');
 
   useEffect(() => {
@@ -42,42 +48,37 @@ export default function ChatInterface() {
     }
   }, [isMounted, currentUser, router]);
 
-  // --- FETCH ROOMS LIST ---
+  // Fetch Rooms List (Dynamic URL)
   const fetchRooms = async () => {
     if (!token) return;
     try {
-      const res = await fetch('http://localhost:8080/api/rooms', {
+      const res = await fetch(`${API_URL}/api/rooms`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
       
-      // FIX: Ensure data is an array before mapping
       if (Array.isArray(data)) {
         setRooms(data.map((r: any) => r.name));
       } else if (data && Array.isArray(data.content)) {
-        // Fallback: Sometimes Spring Data wraps lists in a 'content' object
         setRooms(data.content.map((r: any) => r.name));
       } else {
-        console.error("API did not return an array:", data);
-        setRooms([]); // Safe fallback to prevent crashes
+        setRooms([]); 
       }
-      
     } catch (err) {
       console.error("Failed to load rooms", err);
     }
   };
 
-  // Fetch rooms on load
   useEffect(() => {
     if (isMounted && currentUser && token) {
       fetchRooms();
     }
   }, [isMounted, currentUser, token]);
 
-  // --- FETCH CHAT HISTORY (Triggered on load AND when activeRoom changes) ---
+  // Fetch Chat History (Dynamic URL)
   useEffect(() => {
     if (isMounted && currentUser && token) {
-      fetch(`http://localhost:8080/api/messages/${activeRoom}`, {
+      fetch(`${API_URL}/api/messages/${activeRoom}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -91,19 +92,25 @@ export default function ChatInterface() {
         .then(data => setMessages(data))
         .catch(err => console.error("Failed to load history:", err));
     }
-  }, [isMounted, currentUser, token, activeRoom, setMessages]); // <-- activeRoom added as dependency
+  }, [isMounted, currentUser, token, activeRoom, setMessages]); 
 
+  // Auto-scroll tracks both new messages AND the AI typing indicator
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isAiTyping]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
+      
+      // Trigger the AI thinking animation instantly if the user calls the bot
+      if (inputValue.trim().startsWith('@AI')) {
+        setIsAiTyping(true);
+      }
+
       sendMessage(inputValue);
       setInputValue('');
       
-      // Auto-refresh room list in case this was the first message in a new room
       if (!rooms.includes(activeRoom)) fetchRooms();
     }
   };
@@ -114,13 +121,13 @@ export default function ChatInterface() {
     if (!formattedName) return;
 
     try {
-      await fetch(`http://localhost:8080/api/rooms/${formattedName}`, {
+      await fetch(`${API_URL}/api/rooms/${formattedName}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setNewRoomName('');
-      fetchRooms(); // Refresh the sidebar
-      setActiveRoom(formattedName); // Automatically jump to the new room
+      fetchRooms(); 
+      setActiveRoom(formattedName); 
     } catch (err) {
       console.error("Failed to create room", err);
     }
@@ -192,7 +199,6 @@ export default function ChatInterface() {
               </div>
             </div>
           ))}
-          {/* Default view if no rooms exist yet */}
           {rooms.length === 0 && !rooms.includes('general') && (
              <div className="text-center text-[#8696A0] text-sm mt-10">No rooms yet. Create one above!</div>
           )}
@@ -242,13 +248,13 @@ export default function ChatInterface() {
                     isMe 
                       ? 'bg-[#005C4B] rounded-tr-none' 
                       : isAi 
-                        ? 'bg-[#1E2A30] border border-[#00A884] shadow-[0_0_10px_rgba(0,168,132,0.15)] rounded-tl-none' // Custom AI styling
+                        ? 'bg-[#1E2A30] border border-[#00A884] shadow-[0_0_10px_rgba(0,168,132,0.15)] rounded-tl-none' 
                         : 'bg-[#202C33] rounded-tl-none'
                   }`}
                 >
                   {!isMe && isFirstInGroup && (
                     <span className={`block text-[12.5px] font-medium mb-1 capitalize cursor-pointer hover:underline ${
-                      isAi ? 'text-[#00A884]' : 'text-[#53bdeb]' // Custom AI name color
+                      isAi ? 'text-[#00A884]' : 'text-[#53bdeb]' 
                     }`}>
                       {isAi ? '✨ ' + msg.sender.username : msg.sender.username}
                     </span>
@@ -266,6 +272,24 @@ export default function ChatInterface() {
               </div>
             );
           })}
+
+          {/* --- AI TYPING INDICATOR UI --- */}
+          {isAiTyping && (
+            <div className="flex justify-start mt-3 mb-2 animate-pulse transition-all duration-300">
+              <div className="bg-[#1E2A30] border border-[#00A884] px-4 py-2.5 rounded-lg rounded-tl-none shadow-[0_0_10px_rgba(0,168,132,0.15)] flex items-center gap-2">
+                <span className="text-[#00A884] text-[13px] font-medium mr-1 tracking-wide">
+                  ✨ AI is thinking
+                </span>
+                <div className="flex gap-1.5 pt-1">
+                  <div className="w-1.5 h-1.5 bg-[#00A884] rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-[#00A884] rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                  <div className="w-1.5 h-1.5 bg-[#00A884] rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Invisible Anchor for Auto-Scroll */}
           <div ref={messagesEndRef} />
         </div>
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+// 1. Add createJSONStorage to your imports
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface Message {
   id?: number;
@@ -14,7 +15,6 @@ interface ChatState {
   setSession: (user: string, token: string) => void;
   logout: () => void;
   
-  // --- NEW ROOM STATE ---
   activeRoom: string;
   setActiveRoom: (room: string) => void;
   rooms: string[];
@@ -23,6 +23,9 @@ interface ChatState {
   messages: Message[];
   addMessage: (msg: Message) => void;
   setMessages: (msgs: Message[]) => void;
+
+  isAiTyping: boolean;
+  setIsAiTyping: (isTyping: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -31,20 +34,25 @@ export const useChatStore = create<ChatState>()(
       currentUser: null,
       token: null,
       setSession: (user, token) => set({ currentUser: user, token: token }),
-      logout: () => set({ currentUser: null, token: null, messages: [], activeRoom: 'general' }),
+      
+      logout: () => set({ currentUser: null, token: null, messages: [], activeRoom: 'general', isAiTyping: false }),
 
-      // Default to general, empty room list initially
       activeRoom: 'general',
-      setActiveRoom: (room) => set({ activeRoom: room, messages: [] }), // Clear messages when switching rooms
+      setActiveRoom: (room) => set({ activeRoom: room, messages: [], isAiTyping: false }), 
       rooms: [],
       setRooms: (rooms) => set({ rooms: rooms }),
 
       messages: [],
       addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
       setMessages: (msgs) => set({ messages: msgs }),
+
+      isAiTyping: false,
+      setIsAiTyping: (isTyping) => set({ isAiTyping: isTyping }),
     }),
     {
       name: 'chat-storage',
+      // 2. THIS IS THE MAGIC LINE: Switch to sessionStorage!
+      storage: createJSONStorage(() => sessionStorage), 
       partialize: (state) => ({ currentUser: state.currentUser, token: state.token }), 
     }
   )
